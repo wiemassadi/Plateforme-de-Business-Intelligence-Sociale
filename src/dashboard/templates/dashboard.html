@@ -1,0 +1,1140 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Social Business Intelligence - Dashboard Professionnel</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        :root {
+            --primary: #6366f1;
+            --primary-dark: #4f46e5;
+            --secondary: #10b981;
+            --danger: #ef4444;
+            --warning: #f59e0b;
+            --dark-bg: #0f172a;
+            --card-bg: #1e293b;
+            --card-border: #334155;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%);
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+        }
+        
+        .glass-card {
+            background: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+        }
+        
+        .gradient-header {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+        }
+        
+        .stat-card {
+            background: linear-gradient(145deg, var(--card-bg), #1a2332);
+            border: 1px solid var(--card-border);
+            transition: all 0.3s ease;
+        }
+        
+        .stat-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 12px 20px rgba(0, 0, 0, 0.3);
+            border-color: var(--primary);
+        }
+        
+        .platform-card {
+            background: linear-gradient(145deg, var(--card-bg), #1a2332);
+            border-top: 4px solid;
+            transition: all 0.3s ease;
+        }
+        
+        .platform-card:hover {
+            transform: translateY(-3px);
+        }
+        
+        .trend-card {
+            background: linear-gradient(145deg, var(--card-bg), #1a2332);
+            border-left: 4px solid;
+            transition: all 0.3s ease;
+        }
+        
+        .trend-card:hover {
+            transform: translateX(5px);
+        }
+        
+        .post-card {
+            background: linear-gradient(145deg, var(--card-bg), #1a2332);
+            border-left: 4px solid;
+            transition: all 0.3s ease;
+        }
+        
+        .post-card:hover {
+            background: #2d3748;
+        }
+        
+        .insight-card {
+            background: linear-gradient(145deg, var(--card-bg), #1a2332);
+            border-top: 3px solid;
+            transition: all 0.3s ease;
+        }
+        
+        .insight-card:hover {
+            transform: translateY(-3px);
+        }
+        
+        .pulse-animation {
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        .fade-in {
+            animation: fadeIn 0.5s ease-in;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .slide-in {
+            animation: slideIn 0.6s ease-out;
+        }
+        
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateX(-20px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+        
+        .scrollbar-thin::-webkit-scrollbar {
+            width: 6px;
+        }
+        
+        .scrollbar-thin::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+        }
+        
+        .scrollbar-thin::-webkit-scrollbar-thumb {
+            background: var(--primary);
+            border-radius: 10px;
+        }
+        
+        .badge {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+        
+        .sentiment-indicator {
+            height: 6px;
+            border-radius: 3px;
+            background: linear-gradient(90deg, #ef4444 0%, #f59e0b 50%, #10b981 100%);
+            margin-top: 8px;
+            position: relative;
+        }
+        
+        .sentiment-indicator::after {
+            content: '';
+            position: absolute;
+            top: -4px;
+            width: 14px;
+            height: 14px;
+            background: white;
+            border-radius: 50%;
+            border: 3px solid var(--primary);
+            transform: translateX(-50%);
+        }
+        
+        .loading-shimmer {
+            background: linear-gradient(90deg, 
+                rgba(255,255,255,0.05) 0%, 
+                rgba(255,255,255,0.1) 50%, 
+                rgba(255,255,255,0.05) 100%);
+            background-size: 200% 100%;
+            animation: shimmer 1.5s infinite;
+        }
+        
+        @keyframes shimmer {
+            0% { background-position: -200% 0; }
+            100% { background-position: 200% 0; }
+        }
+        
+        .progress-ring {
+            transform: rotate(-90deg);
+        }
+        
+        .progress-ring-circle {
+            transition: stroke-dashoffset 0.5s ease;
+            transform-origin: 50% 50%;
+        }
+    </style>
+</head>
+<body class="text-gray-100 min-h-screen">
+    
+    <!-- HEADER -->
+    <header class="gradient-header text-white py-4 shadow-2xl">
+        <div class="container mx-auto px-6">
+            <div class="flex flex-col md:flex-row justify-between items-center gap-4">
+                <div class="flex items-center space-x-4">
+                    <div class="p-3 bg-white/10 rounded-xl backdrop-blur-sm">
+                        <i class="fas fa-chart-network text-2xl"></i>
+                    </div>
+                    <div>
+                        <h1 class="text-2xl font-bold tracking-tight">Social Business Intelligence</h1>
+                        <p class="text-sm text-blue-100">Surveillance temps réel • Analyse prédictive • Insights actionnables</p>
+                    </div>
+                </div>
+                
+                <div class="flex flex-col sm:flex-row items-center gap-4">
+                    <div id="status" class="flex items-center bg-black/20 px-4 py-2 rounded-xl border border-white/10">
+                        <div id="statusDot" class="w-3 h-3 bg-red-500 rounded-full mr-3 pulse-animation"></div>
+                        <div>
+                            <span id="statusText" class="font-semibold">Système arrêté</span>
+                            <div class="text-xs text-blue-100">En attente de démarrage</div>
+                        </div>
+                    </div>
+                    
+                    <div class="flex space-x-3">
+                        <button id="startBtn" class="bg-emerald-600 hover:bg-emerald-700 px-5 py-2.5 rounded-xl font-semibold transition-all duration-300 flex items-center space-x-2 shadow-lg hover:shadow-emerald-500/25">
+                            <i class="fas fa-play"></i>
+                            <span>Démarrer</span>
+                        </button>
+                        <button id="stopBtn" class="bg-rose-600 hover:bg-rose-700 px-5 py-2.5 rounded-xl font-semibold transition-all duration-300 flex items-center space-x-2 shadow-lg hover:shadow-rose-500/25">
+                            <i class="fas fa-stop"></i>
+                            <span>Arrêter</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- ALERTES BUSINESS -->
+    <div class="container mx-auto px-6 py-4">
+        <div id="businessAlerts" class="space-y-3">
+            <!-- Alertes dynamiques -->
+        </div>
+    </div>
+
+    <!-- MAIN CONTENT -->
+    <main class="container mx-auto px-6 pb-10">
+        
+        <!-- MÉTRIQUES CLÉS -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-5 mb-8">
+            <!-- Conversations surveillées -->
+            <div class="stat-card rounded-2xl p-5 border-l-4 border-blue-500">
+                <div class="flex items-start justify-between mb-3">
+                    <div class="p-3 bg-blue-500/10 rounded-xl">
+                        <i class="fas fa-comments text-blue-400 text-xl"></i>
+                    </div>
+                    <div class="text-xs font-semibold text-blue-400 bg-blue-500/10 px-3 py-1 rounded-full">
+                        LIVE
+                    </div>
+                </div>
+                <p class="text-sm text-gray-400 mb-1">Conversations analysées</p>
+                <h3 id="postsProcessed" class="text-3xl font-bold text-white mb-2">0</h3>
+                <div class="flex items-center text-xs text-gray-500">
+                    <i class="fas fa-arrow-up mr-1 text-green-400"></i>
+                    <span>Mise à jour en temps réel</span>
+                </div>
+            </div>
+            
+            <!-- Sentiment global -->
+            <div class="stat-card rounded-2xl p-5 border-l-4 border-emerald-500">
+                <div class="flex items-start justify-between mb-3">
+                    <div class="p-3 bg-emerald-500/10 rounded-xl">
+                        <i class="fas fa-smile text-emerald-400 text-xl"></i>
+                    </div>
+                    <div class="text-xs font-semibold text-emerald-400 bg-emerald-500/10 px-3 py-1 rounded-full">
+                        POSITIF
+                    </div>
+                </div>
+                <p class="text-sm text-gray-400 mb-1">Sentiment global</p>
+                <h3 id="globalSentiment" class="text-3xl font-bold text-white mb-2">--%</h3>
+                <div class="text-xs text-gray-500" id="sentimentTrend">
+                    <i class="fas fa-sync-alt animate-spin mr-1"></i>
+                    <span>Calcul en cours...</span>
+                </div>
+            </div>
+            
+            <!-- Opportunités détectées -->
+            <div class="stat-card rounded-2xl p-5 border-l-4 border-purple-500">
+                <div class="flex items-start justify-between mb-3">
+                    <div class="p-3 bg-purple-500/10 rounded-xl">
+                        <i class="fas fa-bolt text-purple-400 text-xl"></i>
+                    </div>
+                    <div class="text-xs font-semibold text-purple-400 bg-purple-500/10 px-3 py-1 rounded-full">
+                        TRENDS
+                    </div>
+                </div>
+                <p class="text-sm text-gray-400 mb-1">Opportunités business</p>
+                <h3 id="activeTrends" class="text-3xl font-bold text-white mb-2">0</h3>
+                <div class="text-xs text-gray-500">
+                    <i class="fas fa-chart-line mr-1"></i>
+                    <span>Tendances émergentes</span>
+                </div>
+            </div>
+            
+            <!-- Alertes critiques -->
+            <div class="stat-card rounded-2xl p-5 border-l-4 border-rose-500">
+                <div class="flex items-start justify-between mb-3">
+                    <div class="p-3 bg-rose-500/10 rounded-xl">
+                        <i class="fas fa-exclamation-triangle text-rose-400 text-xl"></i>
+                    </div>
+                    <div class="text-xs font-semibold text-rose-400 bg-rose-500/10 px-3 py-1 rounded-full">
+                        ALERT
+                    </div>
+                </div>
+                <p class="text-sm text-gray-400 mb-1">Points critiques</p>
+                <h3 id="criticalAlerts" class="text-3xl font-bold text-white mb-2">0</h3>
+                <div class="text-xs text-gray-500">
+                    <i class="fas fa-shield-alt mr-1"></i>
+                    <span>Nécessitent attention</span>
+                </div>
+            </div>
+            
+            <!-- Uptime système -->
+            <div class="stat-card rounded-2xl p-5 border-l-4 border-amber-500">
+                <div class="flex items-start justify-between mb-3">
+                    <div class="p-3 bg-amber-500/10 rounded-xl">
+                        <i class="fas fa-clock text-amber-400 text-xl"></i>
+                    </div>
+                    <div class="text-xs font-semibold text-amber-400 bg-amber-500/10 px-3 py-1 rounded-full">
+                        ACTIF
+                    </div>
+                </div>
+                <p class="text-sm text-gray-400 mb-1">Temps de fonctionnement</p>
+                <h3 id="systemUptime" class="text-2xl font-bold text-white mb-2">00:00:00</h3>
+                <div class="text-xs text-gray-500" id="lastUpdate">
+                    <i class="fas fa-history mr-1"></i>
+                    <span>Dernière mise à jour: --:--</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- SECTION PLATEFORMES -->
+        <div class="glass-card rounded-2xl p-6 mb-8">
+            <div class="flex items-center justify-between mb-6">
+                <h2 class="text-xl font-bold flex items-center">
+                    <i class="fas fa-satellite-dish text-blue-400 mr-3"></i>
+                    Surveillance Multi-Plateformes
+                </h2>
+                <div class="text-sm text-gray-400">
+                    <i class="fas fa-sync-alt mr-2"></i>
+                    <span>Actualisation automatique toutes les 30 secondes</span>
+                </div>
+            </div>
+            
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <!-- Reddit -->
+                <div class="platform-card rounded-xl p-5 border-t-red-500">
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="p-3 bg-red-500/10 rounded-lg">
+                            <i class="fab fa-reddit text-red-400 text-2xl"></i>
+                        </div>
+                        <div class="text-xs font-semibold text-red-400 bg-red-500/10 px-3 py-1 rounded-full">
+                            COMMUNITY
+                        </div>
+                    </div>
+                    <h3 class="text-lg font-semibold mb-2">Reddit</h3>
+                    <div id="redditCount" class="text-3xl font-bold mb-1">0</div>
+                    <div class="text-sm text-gray-400">conversations analysées</div>
+                </div>
+                
+                <!-- Twitter -->
+                <div class="platform-card rounded-xl p-5 border-t-blue-500">
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="p-3 bg-blue-500/10 rounded-lg">
+                            <i class="fab fa-twitter text-blue-400 text-2xl"></i>
+                        </div>
+                        <div class="text-xs font-semibold text-blue-400 bg-blue-500/10 px-3 py-1 rounded-full">
+                            REAL-TIME
+                        </div>
+                    </div>
+                    <h3 class="text-lg font-semibold mb-2">Twitter</h3>
+                    <div id="twitterCount" class="text-3xl font-bold mb-1">0</div>
+                    <div class="text-sm text-gray-400">tweets analysés</div>
+                </div>
+                
+                <!-- Instagram -->
+                <div class="platform-card rounded-xl p-5 border-t-pink-500">
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="p-3 bg-pink-500/10 rounded-lg">
+                            <i class="fab fa-instagram text-pink-400 text-2xl"></i>
+                        </div>
+                        <div class="text-xs font-semibold text-pink-400 bg-pink-500/10 px-3 py-1 rounded-full">
+                            VISUAL
+                        </div>
+                    </div>
+                    <h3 class="text-lg font-semibold mb-2">Instagram</h3>
+                    <div id="instagramCount" class="text-3xl font-bold mb-1">0</div>
+                    <div class="text-sm text-gray-400">posts analysés</div>
+                </div>
+                
+                <!-- TikTok -->
+                <div class="platform-card rounded-xl p-5 border-t-cyan-500">
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="p-3 bg-cyan-500/10 rounded-lg">
+                            <i class="fab fa-tiktok text-cyan-400 text-2xl"></i>
+                        </div>
+                        <div class="text-xs font-semibold text-cyan-400 bg-cyan-500/10 px-3 py-1 rounded-full">
+                            VIDEO
+                        </div>
+                    </div>
+                    <h3 class="text-lg font-semibold mb-2">TikTok</h3>
+                    <div id="tiktokCount" class="text-3xl font-bold mb-1">0</div>
+                    <div class="text-sm text-gray-400">vidéos analysées</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- SECTION ANALYSE + OPPORTUNITÉS -->
+        <div class="grid grid-cols-1 xl:grid-cols-2 gap-8 mb-8">
+            
+            <!-- ANALYSE SENTIMENTS -->
+            <div class="glass-card rounded-2xl p-6">
+                <div class="flex items-center justify-between mb-6">
+                    <h2 class="text-xl font-bold flex items-center">
+                        <i class="fas fa-chart-pie text-emerald-400 mr-3"></i>
+                        Analyse des Sentiments
+                    </h2>
+                    <div id="sentimentScore" class="text-sm font-semibold px-4 py-2 rounded-full bg-gray-800">
+                        <i class="fas fa-chart-line mr-2"></i>
+                        <span>Score: --%</span>
+                    </div>
+                </div>
+                
+                <div class="h-72 mb-6">
+                    <canvas id="sentimentChart"></canvas>
+                </div>
+                
+                <!-- Interprétation -->
+                <div class="bg-gradient-to-r from-gray-800 to-gray-900 rounded-xl p-5 border border-gray-700">
+                    <h3 class="font-bold text-lg mb-3 flex items-center">
+                        <i class="fas fa-lightbulb text-amber-400 mr-2"></i>
+                        Interprétation Business
+                    </h3>
+                    <p id="sentimentInterpretation" class="text-gray-300 leading-relaxed">
+                        En attente d'analyse des premières données...
+                    </p>
+                </div>
+            </div>
+            
+            <!-- OPPORTUNITÉS BUSINESS -->
+            <div class="glass-card rounded-2xl p-6">
+                <div class="flex items-center justify-between mb-6">
+                    <h2 class="text-xl font-bold flex items-center">
+                        <i class="fas fa-rocket text-purple-400 mr-3"></i>
+                        Opportunités Détectées
+                    </h2>
+                    <div class="flex items-center text-sm text-purple-400">
+                        <i class="fas fa-filter mr-2"></i>
+                        <span>Trié par opportunité</span>
+                    </div>
+                </div>
+                
+                <div id="trendsContainer" class="space-y-4 max-h-[440px] overflow-y-auto pr-2 scrollbar-thin">
+                    <div class="text-center py-10">
+                        <div class="inline-block p-6 bg-gray-800/50 rounded-2xl mb-4">
+                            <i class="fas fa-search text-4xl text-gray-500"></i>
+                        </div>
+                        <p class="font-semibold text-lg mb-2">Recherche d'opportunités en cours</p>
+                        <p class="text-sm text-gray-400">Le système analyse les tendances émergentes sur les réseaux sociaux</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- CONVERSATIONS RÉCENTES -->
+        <div class="glass-card rounded-2xl p-6 mb-8">
+            <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+                <h2 class="text-xl font-bold flex items-center">
+                    <i class="fas fa-comment-dots text-blue-400 mr-3"></i>
+                    Conversations Récentes
+                </h2>
+                
+                <div class="flex flex-wrap gap-2">
+                    <button class="filter-btn active bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-xl text-sm font-medium transition-colors flex items-center" data-filter="all">
+                        <i class="fas fa-layer-group mr-2"></i>
+                        Tous
+                    </button>
+                    <button class="filter-btn bg-emerald-600/20 hover:bg-emerald-600/30 px-4 py-2 rounded-xl text-sm font-medium transition-colors flex items-center" data-filter="positive">
+                        <i class="fas fa-thumbs-up mr-2"></i>
+                        Positif
+                    </button>
+                    <button class="filter-btn bg-rose-600/20 hover:bg-rose-600/30 px-4 py-2 rounded-xl text-sm font-medium transition-colors flex items-center" data-filter="negative">
+                        <i class="fas fa-thumbs-down mr-2"></i>
+                        Négatif
+                    </button>
+                    <button class="filter-btn bg-orange-600/20 hover:bg-orange-600/30 px-4 py-2 rounded-xl text-sm font-medium transition-colors flex items-center" data-filter="viral">
+                        <i class="fas fa-fire mr-2"></i>
+                        Viral
+                    </button>
+                </div>
+            </div>
+            
+            <div id="postsContainer" class="space-y-4 max-h-[500px] overflow-y-auto pr-2 scrollbar-thin">
+                <div class="text-center py-12">
+                    <div class="inline-block p-6 bg-gray-800/50 rounded-2xl mb-4">
+                        <i class="fas fa-comment-slash text-4xl text-gray-500"></i>
+                    </div>
+                    <p class="font-semibold text-lg mb-2">Aucune conversation détectée</p>
+                    <p class="text-sm text-gray-400 mb-4">Démarrez le système pour commencer la surveillance des réseaux sociaux</p>
+                    <button id="startBtn2" class="bg-blue-600 hover:bg-blue-700 px-5 py-2.5 rounded-xl font-medium transition-all duration-300">
+                        <i class="fas fa-play mr-2"></i>
+                        Démarrer la surveillance
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- INSIGHTS BUSINESS -->
+        <div class="glass-card rounded-2xl p-6">
+            <h2 class="text-xl font-bold mb-6 flex items-center">
+                <i class="fas fa-brain text-amber-400 mr-3"></i>
+                Insights & Recommandations
+            </h2>
+            
+            <div id="businessInsights" class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <!-- Actions recommandées -->
+                <div class="insight-card rounded-xl p-5 border-t-emerald-500">
+                    <div class="flex items-center mb-4">
+                        <div class="p-3 bg-emerald-500/10 rounded-lg mr-3">
+                            <i class="fas fa-check-circle text-emerald-400 text-xl"></i>
+                        </div>
+                        <h3 class="font-bold text-lg">Actions Recommandées</h3>
+                    </div>
+                    <ul id="recommendedActions" class="space-y-3">
+                        <li class="flex items-start">
+                            <div class="p-1 bg-emerald-500/20 rounded mr-3 mt-1">
+                                <i class="fas fa-chevron-right text-emerald-400 text-xs"></i>
+                            </div>
+                            <span class="text-gray-300">En attente de données d'analyse...</span>
+                        </li>
+                    </ul>
+                </div>
+                
+                <!-- Points d'attention -->
+                <div class="insight-card rounded-xl p-5 border-t-amber-500">
+                    <div class="flex items-center mb-4">
+                        <div class="p-3 bg-amber-500/10 rounded-lg mr-3">
+                            <i class="fas fa-exclamation-triangle text-amber-400 text-xl"></i>
+                        </div>
+                        <h3 class="font-bold text-lg">Points d'Attention</h3>
+                    </div>
+                    <ul id="attentionPoints" class="space-y-3">
+                        <li class="flex items-start">
+                            <div class="p-1 bg-amber-500/20 rounded mr-3 mt-1">
+                                <i class="fas fa-chevron-right text-amber-400 text-xs"></i>
+                            </div>
+                            <span class="text-gray-300">Système en attente de démarrage</span>
+                        </li>
+                    </ul>
+                </div>
+                
+                <!-- Prévisions -->
+                <div class="insight-card rounded-xl p-5 border-t-blue-500">
+                    <div class="flex items-center mb-4">
+                        <div class="p-3 bg-blue-500/10 rounded-lg mr-3">
+                            <i class="fas fa-chart-line text-blue-400 text-xl"></i>
+                        </div>
+                        <h3 class="font-bold text-lg">Prévisions & Tendances</h3>
+                    </div>
+                    <ul id="predictions" class="space-y-3">
+                        <li class="flex items-start">
+                            <div class="p-1 bg-blue-500/20 rounded mr-3 mt-1">
+                                <i class="fas fa-chevron-right text-blue-400 text-xs"></i>
+                            </div>
+                            <span class="text-gray-300">Analyse prédictive en attente...</span>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- FOOTER -->
+    <footer class="mt-12 py-6 border-t border-gray-800">
+        <div class="container mx-auto px-6">
+            <div class="flex flex-col md:flex-row justify-between items-center">
+                <div class="mb-4 md:mb-0">
+                    <div class="flex items-center space-x-2 mb-2">
+                        <div class="p-2 bg-blue-600/20 rounded-lg">
+                            <i class="fas fa-chart-network text-blue-400"></i>
+                        </div>
+                        <span class="font-bold">Social Business Intelligence</span>
+                    </div>
+                    <p class="text-sm text-gray-500">Dashboard de surveillance temps réel - Version 1.0</p>
+                </div>
+                <div class="text-sm text-gray-500">
+                    <p><i class="fas fa-sync-alt mr-2"></i> Actualisation automatique: 30 secondes</p>
+                    <p class="mt-1"><i class="fas fa-database mr-2"></i> 4 plateformes surveillées en temps réel</p>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <!-- JAVASCRIPT -->
+    <script>
+        // Le code JavaScript reste EXACTEMENT le même que dans ta version originale
+        // Je ne le modifie pas du tout pour préserver la logique fonctionnelle
+        
+        const socket = io();
+        const elements = {
+            statusDot: document.getElementById('statusDot'),
+            statusText: document.getElementById('statusText'),
+            postsProcessed: document.getElementById('postsProcessed'),
+            globalSentiment: document.getElementById('globalSentiment'),
+            activeTrends: document.getElementById('activeTrends'),
+            criticalAlerts: document.getElementById('criticalAlerts'),
+            systemUptime: document.getElementById('systemUptime'),
+            lastUpdate: document.getElementById('lastUpdate')
+        };
+        
+        let sentimentChart = null;
+        let currentFilter = 'all';
+        
+        // Socket Events
+        socket.on('connect', () => {
+            console.log('✅ Connecté au serveur');
+            updateStatus('connected');
+        });
+        
+        socket.on('system_stats', (data) => {
+            updateMetrics(data);
+        });
+        
+        socket.on('sentiment_update', (data) => {
+            updateSentimentChart(data);
+            updateBusinessInterpretation(data);
+        });
+        
+        socket.on('trends_update', (data) => {
+            console.log('📊 Tendances reçues:', data);
+            updateTrends(data.trends || data);
+        });
+        
+        socket.on('new_posts', (data) => {
+            updatePosts(data.posts || data);
+        });
+        
+        socket.on('collection_stats', (data) => {
+            updatePlatformStats(data.total || data);
+        });
+        
+        // Boutons Contrôle
+        document.getElementById('startBtn').onclick = () => {
+            fetch('/api/control/start', { method: 'POST' })
+                .then(r => r.json())
+                .then(d => {
+                    showNotification('✅ ' + d.message, 'success');
+                    updateStatus('running');
+                });
+        };
+        
+        document.getElementById('startBtn2').onclick = () => {
+            fetch('/api/control/start', { method: 'POST' })
+                .then(r => r.json())
+                .then(d => {
+                    showNotification('✅ ' + d.message, 'success');
+                    updateStatus('running');
+                });
+        };
+        
+        document.getElementById('stopBtn').onclick = () => {
+            fetch('/api/control/stop', { method: 'POST' })
+                .then(r => r.json())
+                .then(d => {
+                    showNotification('⏹️ ' + d.message, 'info');
+                    updateStatus('stopped');
+                });
+        };
+        
+        // Filtres Posts
+        document.querySelectorAll('.filter-btn').forEach(btn => {
+            btn.onclick = () => {
+                document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active', 'bg-blue-600'));
+                btn.classList.add('active');
+                if (btn.dataset.filter === 'all') {
+                    btn.classList.add('bg-blue-600');
+                }
+                currentFilter = btn.dataset.filter;
+                filterPosts();
+            };
+        });
+        
+        // Fonctions Mise à Jour
+        function updateStatus(status) {
+            const configs = {
+                'connected': { color: 'bg-yellow-500', text: 'Connecté' },
+                'running': { color: 'bg-green-500', text: 'En Surveillance' },
+                'stopped': { color: 'bg-red-500', text: 'Arrêté' }
+            };
+            const config = configs[status] || configs.stopped;
+            elements.statusDot.className = `w-3 h-3 rounded-full mr-2 ${config.color} ${status === 'running' ? 'pulse-animation' : ''}`;
+            elements.statusText.textContent = config.text;
+        }
+        
+        function updateMetrics(data) {
+            elements.postsProcessed.textContent = (data.posts_processed || 0).toLocaleString();
+            
+            if (data.system_uptime) {
+                const h = Math.floor(data.system_uptime / 3600);
+                const m = Math.floor((data.system_uptime % 3600) / 60);
+                const s = Math.floor(data.system_uptime % 60);
+                elements.systemUptime.textContent = 
+                    `${h.toString().padStart(2,'0')}:${m.toString().padStart(2,'0')}:${s.toString().padStart(2,'0')}`;
+            }
+            
+            const now = new Date();
+            elements.lastUpdate.innerHTML = `<i class="fas fa-history mr-1"></i><span>Dernière mise à jour: ${now.getHours().toString().padStart(2,'0')}:${now.getMinutes().toString().padStart(2,'0')}</span>`;
+        }
+        
+        function updatePlatformStats(stats) {
+            document.getElementById('redditCount').textContent = (stats.reddit || 0).toLocaleString();
+            document.getElementById('twitterCount').textContent = (stats.twitter || 0).toLocaleString();
+            document.getElementById('instagramCount').textContent = (stats.instagram || 0).toLocaleString();
+            document.getElementById('tiktokCount').textContent = (stats.tiktok || 0).toLocaleString();
+        }
+        
+        function updateSentimentChart(data) {
+            const ctx = document.getElementById('sentimentChart').getContext('2d');
+            if (sentimentChart) sentimentChart.destroy();
+            
+            const total = (data.very_positive || 0) + (data.positive || 0) + (data.neutral || 0) + (data.negative || 0) + (data.very_negative || 0);
+            const positiveTotal = (data.very_positive || 0) + (data.positive || 0);
+            const negativeTotal = (data.negative || 0) + (data.very_negative || 0);
+            
+            // Sentiment global
+            const positivePercent = total > 0 ? Math.round(positiveTotal / total * 100) : 0;
+            elements.globalSentiment.textContent = positivePercent + '%';
+            elements.globalSentiment.className = `text-3xl font-bold ${positivePercent >= 60 ? 'text-emerald-400' : positivePercent >= 40 ? 'text-amber-400' : 'text-rose-400'}`;
+            
+            document.getElementById('sentimentTrend').innerHTML = 
+                positivePercent >= 60 ? '<i class="fas fa-arrow-up text-emerald-400 mr-1"></i><span class="text-emerald-400">Très positif</span>' : 
+                positivePercent >= 40 ? '<i class="fas fa-minus text-amber-400 mr-1"></i><span class="text-amber-400">Neutre</span>' : 
+                '<i class="fas fa-arrow-down text-rose-400 mr-1"></i><span class="text-rose-400">Négatif</span>';
+            
+            document.getElementById('sentimentScore').innerHTML = `<i class="fas fa-chart-line mr-2"></i><span>Score: ${positivePercent}%</span>`;
+            document.getElementById('sentimentScore').className = `text-sm font-semibold px-4 py-2 rounded-full ${positivePercent >= 60 ? 'bg-emerald-500/20 text-emerald-400' : positivePercent >= 40 ? 'bg-amber-500/20 text-amber-400' : 'bg-rose-500/20 text-rose-400'}`;
+            
+            sentimentChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Très Positif', 'Positif', 'Neutre', 'Négatif', 'Très Négatif'],
+                    datasets: [{
+                        data: [
+                            data.very_positive || 0,
+                            data.positive || 0,
+                            data.neutral || 0,
+                            data.negative || 0,
+                            data.very_negative || 0
+                        ],
+                        backgroundColor: ['#10B981', '#34D399', '#6B7280', '#F59E0B', '#EF4444'],
+                        borderWidth: 0,
+                        borderRadius: 8
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: '70%',
+                    plugins: {
+                        legend: { 
+                            position: 'bottom', 
+                            labels: { 
+                                color: '#CBD5E1',
+                                font: { 
+                                    size: 11,
+                                    family: "'Segoe UI', system-ui" 
+                                },
+                                padding: 15
+                            } 
+                        },
+                        tooltip: {
+                            backgroundColor: 'rgba(30, 41, 59, 0.95)',
+                            titleColor: '#F1F5F9',
+                            bodyColor: '#CBD5E1',
+                            borderColor: '#475569',
+                            borderWidth: 1,
+                            callbacks: {
+                                label: (context) => {
+                                    const value = context.parsed;
+                                    const percent = total > 0 ? Math.round(value / total * 100) : 0;
+                                    return `${context.label}: ${value} (${percent}%)`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+        
+        function updateBusinessInterpretation(data) {
+            const total = (data.very_positive || 0) + (data.positive || 0) + (data.neutral || 0) + (data.negative || 0) + (data.very_negative || 0);
+            const positiveTotal = (data.very_positive || 0) + (data.positive || 0);
+            const negativeTotal = (data.negative || 0) + (data.very_negative || 0);
+            const positivePercent = total > 0 ? Math.round(positiveTotal / total * 100) : 0;
+            
+            let interpretation = '';
+            if (positivePercent >= 70) {
+                interpretation = '✅ Excellente perception ! Vos clients sont satisfaits. Moment idéal pour lancer de nouvelles campagnes marketing.';
+            } else if (positivePercent >= 50) {
+                interpretation = '😊 Perception globalement positive. Continuez sur cette voie, mais surveillez les points négatifs pour amélioration.';
+            } else if (positivePercent >= 30) {
+                interpretation = '😐 Perception mitigée. Actions recommandées: améliorer service client et communication sur réseaux sociaux.';
+            } else {
+                interpretation = '⚠️ ALERTE: Perception négative dominante. Réaction immédiate nécessaire pour gérer la situation.';
+            }
+            
+            document.getElementById('sentimentInterpretation').textContent = interpretation;
+            
+            // Alertes critiques
+            const criticalCount = negativeTotal > positiveTotal ? 1 : 0;
+            elements.criticalAlerts.textContent = criticalCount;
+            
+            if (criticalCount > 0) {
+                showBusinessAlert('⚠️ ALERTE: Le sentiment négatif dépasse le positif. Action requise !', 'warning');
+            }
+        }
+        
+        function updateTrends(trends) {
+            console.log('🔍 Mise à jour tendances:', trends);
+            
+            if (!trends || trends.length === 0) {
+                elements.activeTrends.textContent = '0';
+                document.getElementById('trendsContainer').innerHTML = `
+                    <div class="text-center py-10">
+                        <div class="inline-block p-6 bg-gray-800/50 rounded-2xl mb-4">
+                            <i class="fas fa-search text-4xl text-gray-500"></i>
+                        </div>
+                        <p class="font-semibold text-lg mb-2">Aucune opportunité détectée pour le moment</p>
+                        <p class="text-sm text-gray-400">Le système continue d'analyser les tendances émergentes</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            // MISE À JOUR COMPTEUR
+            elements.activeTrends.textContent = trends.length;
+            
+            const container = document.getElementById('trendsContainer');
+            container.innerHTML = trends.map((trend, idx) => {
+                const confidence = Math.round((trend.confidence || 0) * 100);
+                const growth = Math.round((trend.growth_24h || 0) * 100);
+                const opportunity = trend.market_opportunity || 0;
+                
+                // Déterminer couleur selon opportunité
+                let borderColor = 'border-gray-500';
+                let badge = '';
+                if (opportunity >= 70) {
+                    borderColor = 'border-emerald-500';
+                    badge = '<span class="badge bg-emerald-500/20 text-emerald-400"><i class="fas fa-fire mr-1"></i> PRIORITAIRE</span>';
+                } else if (opportunity >= 50) {
+                    borderColor = 'border-amber-500';
+                    badge = '<span class="badge bg-amber-500/20 text-amber-400"><i class="fas fa-star mr-1"></i> INTÉRESSANT</span>';
+                } else {
+                    borderColor = 'border-gray-500';
+                    badge = '<span class="badge bg-gray-500/20 text-gray-400"><i class="fas fa-eye mr-1"></i> À SURVEILLER</span>';
+                }
+                
+                return `
+                    <div class="fade-in trend-card rounded-xl p-5 ${borderColor}">
+                        <div class="flex justify-between items-start mb-4">
+                            <div>
+                                <h3 class="font-bold text-lg mb-1">${trend.name}</h3>
+                                <div class="mb-2">${badge}</div>
+                            </div>
+                            <span class="bg-purple-600/20 text-purple-400 px-3 py-1 rounded-full text-xs font-bold">
+                                <i class="fas fa-shield-alt mr-1"></i>
+                                ${confidence}% confiance
+                            </span>
+                        </div>
+                        
+                        <div class="grid grid-cols-3 gap-3 text-sm mb-4">
+                            <div class="bg-gray-800/50 p-3 rounded-lg text-center">
+                                <div class="text-xs text-gray-400 mb-1">Volume</div>
+                                <div class="font-bold text-lg">${trend.volume}</div>
+                                <div class="text-xs text-gray-500">mentions</div>
+                            </div>
+                            <div class="bg-gray-800/50 p-3 rounded-lg text-center">
+                                <div class="text-xs text-gray-400 mb-1">Croissance 24h</div>
+                                <div class="font-bold text-lg ${growth > 0 ? 'text-emerald-400' : 'text-rose-400'}">
+                                    ${growth > 0 ? '+' : ''}${growth}%
+                                </div>
+                                <div class="text-xs text-gray-500">évolution</div>
+                            </div>
+                            <div class="bg-gray-800/50 p-3 rounded-lg text-center">
+                                <div class="text-xs text-gray-400 mb-1">Opportunité</div>
+                                <div class="font-bold text-lg ${opportunity >= 70 ? 'text-emerald-400' : opportunity >= 50 ? 'text-amber-400' : 'text-gray-400'}">
+                                    ${opportunity}/100
+                                </div>
+                                <div class="text-xs text-gray-500">score</div>
+                            </div>
+                        </div>
+                        
+                        <div class="text-sm bg-gray-800/30 rounded-lg p-3">
+                            <div class="font-semibold text-gray-300 mb-1">
+                                <i class="fas fa-lightbulb mr-2"></i>
+                                Recommandation:
+                            </div>
+                            <div class="text-gray-400">
+                                ${opportunity >= 70 ? 'Capitaliser immédiatement sur cette tendance avec une campagne dédiée.' :
+                                  opportunity >= 50 ? 'Préparer du contenu autour de cette thématique pour anticipation.' :
+                                  'Surveiller l\'évolution dans les prochaines 24h avant action.'}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+            
+            // Mettre à jour insights
+            updateBusinessInsights(trends);
+        }
+        
+        function updatePosts(posts) {
+            if (!posts || posts.length === 0) return;
+            
+            const container = document.getElementById('postsContainer');
+            if (container.querySelector('.text-center')) {
+                container.innerHTML = '';
+            }
+            
+            posts.forEach(post => {
+                const sentimentEmoji = {
+                    'very_positive': '😍',
+                    'positive': '😊',
+                    'neutral': '😐',
+                    'negative': '😕',
+                    'very_negative': '😠'
+                };
+                
+                const sentimentColor = {
+                    'very_positive': 'border-emerald-500',
+                    'positive': 'border-emerald-400',
+                    'neutral': 'border-gray-500',
+                    'negative': 'border-amber-500',
+                    'very_negative': 'border-rose-500'
+                };
+                
+                const isViral = (post.metrics?.likes || 0) > 50000;
+                
+                const div = document.createElement('div');
+                div.className = `fade-in post-card rounded-xl p-5 ${sentimentColor[post.sentiment] || 'border-gray-500'} post-item`;
+                div.dataset.sentiment = post.sentiment;
+                div.dataset.viral = isViral;
+                
+                div.innerHTML = `
+                    <div class="flex justify-between items-start mb-4">
+                        <div class="flex items-center space-x-3">
+                            <span class="px-3 py-1.5 rounded-full text-xs font-medium ${
+                                post.platform === 'tiktok' ? 'bg-cyan-600/20 text-cyan-400' : 
+                                post.platform === 'twitter' ? 'bg-blue-600/20 text-blue-400' :
+                                post.platform === 'instagram' ? 'bg-pink-600/20 text-pink-400' :
+                                'bg-orange-600/20 text-orange-400'
+                            }">
+                                <i class="fab fa-${post.platform} mr-1.5"></i>
+                                ${post.platform}
+                            </span>
+                            <span class="font-medium">${post.author}</span>
+                            ${isViral ? '<span class="px-2 py-1 rounded-full text-xs font-bold bg-gradient-to-r from-orange-600 to-red-600"><i class="fas fa-fire mr-1"></i>VIRAL</span>' : ''}
+                        </div>
+                        <span class="text-2xl">${sentimentEmoji[post.sentiment] || '❓'}</span>
+                    </div>
+                    <p class="text-gray-300 mb-4 line-clamp-2">${post.content}</p>
+                    <div class="flex justify-between items-center">
+                        <div class="flex items-center space-x-4 text-sm text-gray-400">
+                            <span><i class="fas fa-heart mr-1.5"></i>${(post.metrics?.likes || 0).toLocaleString()}</span>
+                            <span><i class="fas fa-comment mr-1.5"></i>${(post.metrics?.comments || 0).toLocaleString()}</span>
+                            <span><i class="fas fa-share mr-1.5"></i>${(post.metrics?.shares || post.metrics?.retweets || 0).toLocaleString()}</span>
+                        </div>
+                        <div class="text-sm font-semibold ${
+                            (post.business_potential || 0) >= 7 ? 'text-emerald-400' : 
+                            (post.business_potential || 0) >= 4 ? 'text-amber-400' : 
+                            'text-gray-400'
+                        }">
+                            Potentiel: ${post.business_potential || 0}/10
+                        </div>
+                    </div>
+                `;
+                
+                container.insertBefore(div, container.firstChild);
+            });
+            
+            // Limiter à 50
+            while (container.children.length > 50) {
+                container.removeChild(container.lastChild);
+            }
+            
+            filterPosts();
+        }
+        
+        function filterPosts() {
+            document.querySelectorAll('.post-item').forEach(post => {
+                const sentiment = post.dataset.sentiment;
+                const isViral = post.dataset.viral === 'true';
+                
+                let show = false;
+                if (currentFilter === 'all') show = true;
+                else if (currentFilter === 'positive' && ['very_positive', 'positive'].includes(sentiment)) show = true;
+                else if (currentFilter === 'negative' && ['negative', 'very_negative'].includes(sentiment)) show = true;
+                else if (currentFilter === 'viral' && isViral) show = true;
+                
+                post.style.display = show ? 'block' : 'none';
+            });
+        }
+        
+        function updateBusinessInsights(trends) {
+            const highOpportunity = trends.filter(t => (t.market_opportunity || 0) >= 70);
+            const growing = trends.filter(t => (t.growth_24h || 0) > 0.5);
+            
+            // Actions recommandées
+            const actions = [];
+            if (highOpportunity.length > 0) {
+                actions.push(`Capitaliser sur <strong>"${highOpportunity[0].name}"</strong> (opportunité ${highOpportunity[0].market_opportunity}/100)`);
+            }
+            if (growing.length > 0) {
+                actions.push(`Surveiller la tendance <strong>"${growing[0].name}"</strong> (+${Math.round(growing[0].growth_24h * 100)}% croissance)`);
+            }
+            if (actions.length === 0) {
+                actions.push('Continuer la surveillance des réseaux sociaux pour détecter de nouvelles opportunités');
+            }
+            
+            document.getElementById('recommendedActions').innerHTML = actions.map(action => 
+                `<li class="flex items-start">
+                    <div class="p-1 bg-emerald-500/20 rounded mr-3 mt-1">
+                        <i class="fas fa-chevron-right text-emerald-400 text-xs"></i>
+                    </div>
+                    <span class="text-gray-300">${action}</span>
+                </li>`
+            ).join('');
+            
+            // Points d'attention
+            const attentionItems = [
+                `<strong>${trends.length}</strong> tendances émergentes détectées`,
+                'Surveillance continue active 24/7 sur 4 plateformes',
+                'Analyse des sentiments en temps réel'
+            ];
+            
+            document.getElementById('attentionPoints').innerHTML = attentionItems.map(item => 
+                `<li class="flex items-start">
+                    <div class="p-1 bg-amber-500/20 rounded mr-3 mt-1">
+                        <i class="fas fa-chevron-right text-amber-400 text-xs"></i>
+                    </div>
+                    <span class="text-gray-300">${item}</span>
+                </li>`
+            ).join('');
+            
+            // Prévisions
+            const predictionItems = [
+                `<strong>${growing.length}</strong> tendances en croissance rapide`,
+                'Opportunités à saisir dans les prochaines 48h',
+                'Potentiel de conversion élevé sur les tendances prioritaires'
+            ];
+            
+            document.getElementById('predictions').innerHTML = predictionItems.map(item => 
+                `<li class="flex items-start">
+                    <div class="p-1 bg-blue-500/20 rounded mr-3 mt-1">
+                        <i class="fas fa-chevron-right text-blue-400 text-xs"></i>
+                    </div>
+                    <span class="text-gray-300">${item}</span>
+                </li>`
+            ).join('');
+        }
+        
+        function showBusinessAlert(message, type) {
+            const container = document.getElementById('businessAlerts');
+            const colors = {
+                'warning': 'bg-gradient-to-r from-amber-900/30 to-amber-800/20 border-amber-500',
+                'danger': 'bg-gradient-to-r from-rose-900/30 to-rose-800/20 border-rose-500',
+                'info': 'bg-gradient-to-r from-blue-900/30 to-blue-800/20 border-blue-500'
+            };
+            
+            const alert = document.createElement('div');
+            alert.className = `${colors[type]} border-l-4 rounded-xl p-4 fade-in shadow-lg`;
+            alert.innerHTML = `
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center">
+                        <div class="p-2 rounded-lg mr-3 ${
+                            type === 'warning' ? 'bg-amber-500/20' : 
+                            type === 'danger' ? 'bg-rose-500/20' : 
+                            'bg-blue-500/20'
+                        }">
+                            <i class="fas fa-${
+                                type === 'warning' ? 'exclamation-triangle' : 
+                                type === 'danger' ? 'times-circle' : 
+                                'info-circle'
+                            } ${
+                                type === 'warning' ? 'text-amber-400' : 
+                                type === 'danger' ? 'text-rose-400' : 
+                                'text-blue-400'
+                            }"></i>
+                        </div>
+                        <p class="font-semibold">${message}</p>
+                    </div>
+                    <button onclick="this.parentElement.parentElement.remove()" class="text-gray-400 hover:text-white">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            `;
+            
+            container.appendChild(alert);
+            
+            // Auto-remove après 10s
+            setTimeout(() => {
+                if (alert.parentElement) {
+                    alert.style.opacity = '0';
+                    alert.style.transform = 'translateX(20px)';
+                    setTimeout(() => alert.remove(), 300);
+                }
+            }, 10000);
+        }
+        
+        function showNotification(message, type) {
+            const toast = document.createElement('div');
+            toast.className = `fixed top-6 right-6 p-4 rounded-xl shadow-2xl z-50 fade-in max-w-sm ${
+                type === 'success' ? 'bg-gradient-to-r from-emerald-600 to-emerald-700' :
+                type === 'error' ? 'bg-gradient-to-r from-rose-600 to-rose-700' :
+                'bg-gradient-to-r from-blue-600 to-blue-700'
+            } text-white`;
+            
+            toast.innerHTML = `
+                <div class="flex items-center">
+                    <div class="p-2 rounded-lg mr-3 bg-white/20">
+                        <i class="fas fa-${
+                            type === 'success' ? 'check-circle' : 
+                            type === 'error' ? 'times-circle' : 
+                            'info-circle'
+                        }"></i>
+                    </div>
+                    <p class="font-medium">${message}</p>
+                </div>
+            `;
+            
+            document.body.appendChild(toast);
+            
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transform = 'translateY(-10px)';
+                setTimeout(() => toast.remove(), 300);
+            }, 5000);
+        }
+    </script>
+</body>
+</html>
